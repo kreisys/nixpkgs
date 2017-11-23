@@ -2,20 +2,9 @@ source $stdenv/setup
 
 source $mirrorsFile
 
-
-# Curl flags to handle redirects, not use EPSV, handle cookies for
-# servers to need them during redirects, and work on SSL without a
-# certificate (this isn't a security problem because we check the
-# cryptographic hash of the output anyway).
-curl="curl \
- --location --max-redirs 20 \
- --retry 3 \
- --disable-epsv \
- --cookie-jar cookies \
- --insecure \
- $curlOpts \
- $NIX_CURL_FLAGS"
-
+curl() {
+  echo --location --max-redirs 20 --retry 3 --disable-epsv --cookie-jar cookies --insecure $curlOpts $NIX_CURL_FLAGS "$@" | xargs curl
+}
 
 downloadedFile="$out"
 if [ -n "$downloadToTemp" ]; then downloadedFile="$TMPDIR/file"; fi
@@ -32,7 +21,7 @@ tryDownload() {
     # if we get error code 18, resume partial download
     while [ $curlexit -eq 18 ]; do
        # keep this inside an if statement, since on failure it doesn't abort the script
-       if $curl -C - --fail "$url" --output "$downloadedFile"; then
+       if curl -C - --fail "$url" --output "$downloadedFile"; then
           success=1
           break
        else
@@ -61,7 +50,7 @@ tryHashedMirrors() {
 
     for mirror in $hashedMirrors; do
         url="$mirror/$outputHashAlgo/$outputHash"
-        if $curl --retry 0 --connect-timeout "${NIX_CONNECT_TIMEOUT:-15}" \
+        if curl --retry 0 --connect-timeout "${NIX_CONNECT_TIMEOUT:-15}" \
             --fail --silent --show-error --head "$url" \
             --write-out "%{http_code}" --output /dev/null > code 2> log; then
             tryDownload "$url"
